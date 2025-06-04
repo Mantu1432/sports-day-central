@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +13,36 @@ import {
   Trophy, 
   Calendar,
   TrendingUp,
-  Filter
+  Filter,
+  Printer
 } from 'lucide-react';
 
-const ReportsPanel = ({ events, registrations }) => {
+interface Event {
+  id: number;
+  name: string;
+  category: string;
+  maxParticipants: number;
+  date: string;
+  venue: string;
+}
+
+interface Registration {
+  id: number;
+  studentName: string;
+  studentId: string;
+  eventId: number;
+  email: string;
+  phone?: string;
+  grade?: string;
+  registrationDate: string;
+}
+
+interface ReportsPanelProps {
+  events: Event[];
+  registrations: Registration[];
+}
+
+const ReportsPanel: React.FC<ReportsPanelProps> = ({ events, registrations }) => {
   const [selectedEvent, setSelectedEvent] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -69,12 +94,12 @@ const ReportsPanel = ({ events, registrations }) => {
         events: categoryEvents.length,
         registrations: categoryRegs.length,
         capacity: totalCapacity,
-        fillPercentage: (categoryRegs.length / totalCapacity) * 100
+        fillPercentage: totalCapacity > 0 ? (categoryRegs.length / totalCapacity) * 100 : 0
       };
     });
 
     // Grade-wise statistics
-    const gradeStats = {};
+    const gradeStats: Record<string, number> = {};
     registrations.forEach(reg => {
       if (reg.grade) {
         gradeStats[reg.grade] = (gradeStats[reg.grade] || 0) + 1;
@@ -87,9 +112,9 @@ const ReportsPanel = ({ events, registrations }) => {
       eventStats: eventStats.sort((a, b) => b.registrations - a.registrations),
       categoryStats: categoryStats.sort((a, b) => b.registrations - a.registrations),
       gradeStats,
-      averageRegistrationsPerEvent: totalRegistrations / events.length,
+      averageRegistrationsPerEvent: totalRegistrations / (events.length || 1),
       mostPopularEvent: eventStats.reduce((max, event) => 
-        event.registrations > max.registrations ? event : max, eventStats[0] || {}
+        event.registrations > max.registrations ? event : max, eventStats[0] || { name: 'N/A', registrations: 0 }
       )
     };
   };
@@ -97,7 +122,7 @@ const ReportsPanel = ({ events, registrations }) => {
   const stats = getStatistics();
 
   // Export functionality
-  const exportToCSV = (data, filename) => {
+  const exportToCSV = (data: string, filename: string) => {
     const csvContent = "data:text/csv;charset=utf-8," + data;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -127,7 +152,84 @@ const ReportsPanel = ({ events, registrations }) => {
     exportToCSV(headers + data, 'student_report.csv');
   };
 
-  const getEventById = (id) => events.find(e => e.id === id);
+  // Print functionality
+  const printEventParticipants = (eventId?: number) => {
+    const eventsToPrint = eventId ? [events.find(e => e.id === eventId)!] : events;
+    
+    const printContent = eventsToPrint.map(event => {
+      const eventRegistrations = registrations.filter(r => r.eventId === event.id);
+      
+      return `
+        <div style="page-break-after: always; padding: 20px; font-family: Arial, sans-serif;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2563eb; margin-bottom: 10px;">School Annual Sports Championship 2024</h1>
+            <h2 style="color: #1f2937; margin-bottom: 5px;">${event.name} - Participants List</h2>
+            <p style="color: #6b7280; margin: 0;">Category: ${event.category} | Date: ${new Date(event.date).toLocaleDateString()} | Venue: ${event.venue}</p>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <p><strong>Total Participants:</strong> ${eventRegistrations.length}/${event.maxParticipants}</p>
+            <p><strong>Event Status:</strong> ${eventRegistrations.length >= event.maxParticipants ? 'Full' : 'Open'}</p>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr style="background-color: #f3f4f6;">
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">S.No.</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Student Name</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Student ID</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Grade</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Email</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Phone</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Registration Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${eventRegistrations.map((reg, index) => `
+                <tr>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${index + 1}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${reg.studentName}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${reg.studentId}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${reg.grade || '-'}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${reg.email}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${reg.phone || '-'}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 10px;">${new Date(reg.registrationDate).toLocaleDateString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 30px; text-align: center; color: #6b7280; font-size: 12px;">
+            <p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Event Participants Report</title>
+            <style>
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContent}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const getEventById = (id: number) => events.find(e => e.id === id);
 
   return (
     <div className="space-y-6">
@@ -147,7 +249,7 @@ const ReportsPanel = ({ events, registrations }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Event</label>
               <Select value={selectedEvent} onValueChange={setSelectedEvent}>
@@ -189,6 +291,26 @@ const ReportsPanel = ({ events, registrations }) => {
                 <Download className="h-4 w-4 mr-2" />
                 Export Students
               </Button>
+            </div>
+            <div className="flex items-end space-x-2">
+              <Button 
+                onClick={() => printEventParticipants()}
+                variant="outline" 
+                className="flex-1 bg-green-50 hover:bg-green-100 text-green-700"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print All Events
+              </Button>
+              {selectedEvent !== 'all' && (
+                <Button 
+                  onClick={() => printEventParticipants(parseInt(selectedEvent))}
+                  variant="outline" 
+                  className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Selected
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -301,7 +423,17 @@ const ReportsPanel = ({ events, registrations }) => {
         <TabsContent value="events">
           <Card>
             <CardHeader>
-              <CardTitle>Event-wise Registration Report</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Event-wise Registration Report</CardTitle>
+                <Button 
+                  onClick={() => printEventParticipants()}
+                  variant="outline"
+                  className="bg-green-50 hover:bg-green-100 text-green-700"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print All Events
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -315,6 +447,7 @@ const ReportsPanel = ({ events, registrations }) => {
                       <th className="text-left p-3">Capacity</th>
                       <th className="text-left p-3">Fill %</th>
                       <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -345,6 +478,17 @@ const ReportsPanel = ({ events, registrations }) => {
                                 : "Open"
                             }
                           </Badge>
+                        </td>
+                        <td className="p-3">
+                          <Button
+                            onClick={() => printEventParticipants(event.id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700"
+                          >
+                            <Printer className="h-3 w-3 mr-1" />
+                            Print
+                          </Button>
                         </td>
                       </tr>
                     ))}

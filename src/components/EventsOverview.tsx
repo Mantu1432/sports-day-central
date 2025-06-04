@@ -2,50 +2,61 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Trophy, Clock, Target } from 'lucide-react';
+import { Calendar, MapPin, Users, Trophy } from 'lucide-react';
 
-const EventsOverview = ({ events, registrations }) => {
-  const getEventRegistrations = (eventId) => {
+interface Event {
+  id: number;
+  name: string;
+  category: string;
+  maxParticipants: number;
+  date: string;
+  venue: string;
+}
+
+interface Registration {
+  id: number;
+  studentName: string;
+  studentId: string;
+  eventId: number;
+  email: string;
+  phone?: string;
+  grade?: string;
+  registrationDate: string;
+}
+
+interface EventsOverviewProps {
+  events: Event[];
+  registrations: Registration[];
+}
+
+const EventsOverview: React.FC<EventsOverviewProps> = ({ events, registrations }) => {
+  const getEventRegistrations = (eventId: number) => {
     return registrations.filter(reg => reg.eventId === eventId);
   };
 
-  const getEventStats = (event) => {
-    const eventRegistrations = getEventRegistrations(event.id);
-    const registrationCount = eventRegistrations.length;
-    const fillPercentage = (registrationCount / event.maxParticipants) * 100;
+  const getEventStatus = (event: Event) => {
+    const eventRegs = getEventRegistrations(event.id);
+    const fillPercentage = (eventRegs.length / event.maxParticipants) * 100;
     
-    return {
-      registrationCount,
-      fillPercentage,
-      spotsRemaining: event.maxParticipants - registrationCount,
-      isFull: registrationCount >= event.maxParticipants
-    };
+    if (eventRegs.length >= event.maxParticipants) return 'full';
+    if (fillPercentage > 80) return 'filling';
+    return 'open';
   };
 
-  const categorizeEvents = () => {
-    const categories = {};
-    events.forEach(event => {
-      if (!categories[event.category]) {
-        categories[event.category] = [];
-      }
-      categories[event.category].push(event);
-    });
-    return categories;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'full': return 'destructive';
+      case 'filling': return 'default';
+      default: return 'secondary';
+    }
   };
 
-  const categorizedEvents = categorizeEvents();
-  const totalRegistrations = registrations.length;
-  const totalCapacity = events.reduce((sum, event) => sum + event.maxParticipants, 0);
-  const overallFillPercentage = (totalRegistrations / totalCapacity) * 100;
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      'Track & Field': 'bg-gradient-to-r from-blue-500 to-blue-600',
-      'Team Sports': 'bg-gradient-to-r from-green-500 to-green-600',
-      'Individual Sports': 'bg-gradient-to-r from-purple-500 to-purple-600',
-      'Indoor Games': 'bg-gradient-to-r from-orange-500 to-orange-600'
-    };
-    return colors[category] || 'bg-gradient-to-r from-gray-500 to-gray-600';
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'full': return 'Full';
+      case 'filling': return 'Filling Fast';
+      default: return 'Open';
+    }
   };
 
   return (
@@ -54,158 +65,102 @@ const EventsOverview = ({ events, registrations }) => {
         <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
           Events Overview
         </h2>
-        <p className="text-gray-600">Annual School Sports Championship 2024</p>
+        <p className="text-gray-600">Browse and track all sports events and their registration status</p>
       </div>
 
-      {/* Overall Stats */}
-      <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 shadow-xl">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Trophy className="h-8 w-8 text-yellow-300" />
-              </div>
-              <p className="text-2xl font-bold">{events.length}</p>
-              <p className="text-indigo-200">Total Events</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Users className="h-8 w-8 text-green-300" />
-              </div>
-              <p className="text-2xl font-bold">{totalRegistrations}</p>
-              <p className="text-indigo-200">Total Registrations</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Target className="h-8 w-8 text-blue-300" />
-              </div>
-              <p className="text-2xl font-bold">{overallFillPercentage.toFixed(1)}%</p>
-              <p className="text-indigo-200">Overall Capacity</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {events.map(event => {
+          const eventRegistrations = getEventRegistrations(event.id);
+          const status = getEventStatus(event);
+          const fillPercentage = (eventRegistrations.length / event.maxParticipants) * 100;
 
-      {/* Events by Category */}
-      {Object.entries(categorizedEvents).map(([category, categoryEvents]) => (
-        <div key={category} className="space-y-4">
-          <div className="flex items-center space-x-3">
-            <div className={`p-2 rounded-lg ${getCategoryColor(category)}`}>
-              <Trophy className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-800">{category}</h3>
-            <Badge variant="outline" className="text-sm">
-              {categoryEvents.length} events
-            </Badge>
-          </div>
+          return (
+            <Card key={event.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg font-semibold text-gray-800">{event.name}</CardTitle>
+                  <Badge variant={getStatusColor(status) as any}>
+                    {getStatusText(status)}
+                  </Badge>
+                </div>
+                <Badge variant="outline" className="w-fit">
+                  {event.category}
+                </Badge>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {new Date(event.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </div>
+                
+                <div className="flex items-center text-sm text-gray-600">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {event.venue}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center">
+                      <Users className="h-4 w-4 mr-2" />
+                      Registrations
+                    </span>
+                    <span className="font-medium">
+                      {eventRegistrations.length}/{event.maxParticipants}
+                    </span>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        status === 'full' ? 'bg-red-500' : 
+                        status === 'filling' ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(fillPercentage, 100)}%` }}
+                    />
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 text-center">
+                    {fillPercentage.toFixed(1)}% filled
+                  </p>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categoryEvents.map(event => {
-              const stats = getEventStats(event);
-              const eventRegistrations = getEventRegistrations(event.id);
-
-              return (
-                <Card key={event.id} className="hover:shadow-lg transition-shadow border-0 bg-white shadow-md">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg font-semibold text-gray-800">
-                        {event.name}
-                      </CardTitle>
-                      <Badge 
-                        variant={stats.isFull ? "destructive" : stats.fillPercentage > 80 ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {stats.registrationCount}/{event.maxParticipants}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Event Details */}
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                        {new Date(event.date).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <MapPin className="h-4 w-4 mr-2 text-green-500" />
-                        {event.venue}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="h-4 w-4 mr-2 text-purple-500" />
-                        {stats.registrationCount} registered, {stats.spotsRemaining} spots left
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Registration Progress</span>
-                        <span className="font-medium">{stats.fillPercentage.toFixed(1)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
-                          className={`h-3 rounded-full transition-all duration-300 ${
-                            stats.isFull 
-                              ? 'bg-gradient-to-r from-red-500 to-red-600' 
-                              : stats.fillPercentage > 80 
-                                ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
-                                : 'bg-gradient-to-r from-green-500 to-emerald-500'
-                          }`}
-                          style={{ width: `${stats.fillPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Status */}
-                    <div className="pt-2 border-t">
-                      {stats.isFull ? (
-                        <div className="flex items-center text-red-600 text-sm font-medium">
-                          <Clock className="h-4 w-4 mr-2" />
-                          Event Full - Registration Closed
+                {eventRegistrations.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Registrations:</h4>
+                    <div className="space-y-1">
+                      {eventRegistrations.slice(0, 3).map(reg => (
+                        <div key={reg.id} className="text-xs text-gray-600 flex justify-between">
+                          <span>{reg.studentName}</span>
+                          <span>{reg.studentId}</span>
                         </div>
-                      ) : stats.fillPercentage > 80 ? (
-                        <div className="flex items-center text-orange-600 text-sm font-medium">
-                          <Clock className="h-4 w-4 mr-2" />
-                          Filling Fast - {stats.spotsRemaining} spots left
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-green-600 text-sm font-medium">
-                          <Clock className="h-4 w-4 mr-2" />
-                          Open for Registration
-                        </div>
+                      ))}
+                      {eventRegistrations.length > 3 && (
+                        <p className="text-xs text-gray-500">
+                          +{eventRegistrations.length - 3} more students
+                        </p>
                       )}
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
-                    {/* Recent Registrations */}
-                    {eventRegistrations.length > 0 && (
-                      <div className="pt-2 border-t">
-                        <p className="text-xs text-gray-500 mb-2">Recent registrations:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {eventRegistrations.slice(-3).map((reg, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {reg.studentName}
-                            </Badge>
-                          ))}
-                          {eventRegistrations.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{eventRegistrations.length - 3} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+      {events.length === 0 && (
+        <div className="text-center py-12">
+          <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Available</h3>
+          <p className="text-gray-500">Events will appear here once they are added to the system.</p>
         </div>
-      ))}
+      )}
     </div>
   );
 };
